@@ -3,11 +3,8 @@
 //
 // Released under a MIT license: https://opensource.org/licenses/MIT
 //
-// Must have the Adafruit RTClib library installed too!  See:
-//   https://github.com/adafruit/RTClib
-//
-// Adafruit invests time and resources providing this open source code, 
-// please support Adafruit and open-source hardware by purchasing 
+// Adafruit invests time and resources providing this open source code,
+// please support Adafruit and open-source hardware by purchasing
 // products from Adafruit!
 
 #include <avr/interrupt.h>
@@ -15,6 +12,7 @@
 #include "Adafruit_LEDBackpack.h"
 #include "Adafruit_GFX.h"
 #include "RTClib.h"
+
 
 #define SKEW_CORRECT_MINUTES  5
 #define TIME_24_HOUR          true
@@ -37,7 +35,7 @@ int displayValue;
 bool snoozing = false;
 bool alarmOn = false;
 bool blinkColon = false;
-int alarmTime = 653;
+int alarmTime = 641;
 int snoozeDelay = 7;
 int unSnoozeTime;
 volatile bool buttonPressed = false;
@@ -64,8 +62,8 @@ void setup() {
   rtc.begin();
 
   bool setClockTime = !rtc.isrunning();
-  
-  //setClockTime = true;
+
+//  setClockTime = true;
   if (setClockTime) {
     // Set the DS1307 time to the exact date and time the sketch was compiled:
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
@@ -84,16 +82,16 @@ void loop() {
   }
 
   if (weekday == 0 or weekday == 6) {
-    alarmTime = 730;
+    alarmTime = 745;
   } else {
-    alarmTime = 653;
+    alarmTime = 641;
   }
-  
+
 //  Serial.print(alarmOn ? 'A' : '_');
 //  Serial.print(snoozing ? 'S' : '_');
 //  Serial.print(buttonPressed ? 'B' : '_');
 //  Serial.println(buttonHeldSeconds);
-    
+
   if (alarmOn) {
     if (buttonPressed) {
       snoozeUntil.hours = hours;
@@ -102,7 +100,7 @@ void loop() {
         snoozeUntil.hours = (hours + 1) % 24;
         snoozeUntil.minutes = snoozeUntil.minutes - 60;
       }
-      
+
       unSnoozeTime = displayTimeFromHrMin(snoozeUntil.hours, snoozeUntil.minutes);
       snoozing = true;
       alarmOn = false;
@@ -119,7 +117,7 @@ void loop() {
   if (displayValue == alarmTime && !snoozing) { // && !buttonPressed) {
     alarmOn = true;
   }
-  
+
   clockDisplay.print(displayValue, DEC);
 
   if (hours == 0) {
@@ -144,10 +142,10 @@ void loop() {
   } else {
     clockDisplay.drawColon(true);
   }
-  
+
   clockDisplay.writeDisplay();
   delay(1000);
-  
+
   if (digitalRead(PUSHBUTTON_PIN) == LOW) {
     buttonHeldSeconds += 1;
   } else {
@@ -160,7 +158,7 @@ void loop() {
     snoozing = false;
     buttonPressed = false;
   }
-  
+
   seconds += 1;
   if (seconds > 59) {
     seconds = 0;
