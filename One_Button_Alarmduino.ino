@@ -9,8 +9,8 @@
 
 #include <avr/interrupt.h>
 #include <Wire.h>
-#include "Adafruit_LEDBackpack.h"
 #include "Adafruit_GFX.h"
+#include "Adafruit_LEDBackpack.h"
 #include "RTClib.h"
 
 
@@ -20,6 +20,7 @@
 #define SPEAKER_PIN           8
 #define NOTE_C4               262
 #define PUSHBUTTON_PIN        2
+#define WEEKDAY_ALARM         741
 
 Adafruit_7segment clockDisplay = Adafruit_7segment();
 RTC_DS1307 rtc = RTC_DS1307();
@@ -35,8 +36,8 @@ int displayValue;
 bool snoozing = false;
 bool alarmOn = false;
 bool blinkColon = false;
-int alarmTime = 641;
-int snoozeDelay = 7;
+int alarmTime = WEEKDAY_ALARM;
+const int snoozeDelay = 7;
 int unSnoozeTime;
 volatile bool buttonPressed = false;
 int buttonHeldSeconds = 0;
@@ -51,11 +52,9 @@ int displayTimeFromHrMin(int hours, int minutes) {
 
 void setup() {
   sei();                              // Enable global interrupts
-  pinMode(PUSHBUTTON_PIN, INPUT);
-  digitalWrite(PUSHBUTTON_PIN, HIGH); // Enable pullup resistor
-  EIMSK |= (1 << INT0);               // Enable external interrupt INT0
-  EICRA |= (1 << ISC01);              // Trigger INT0 on falling edge
-  Serial.begin(115200);
+  pinMode(PUSHBUTTON_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(PUSHBUTTON_PIN), pushed, FALLING);
+//  Serial.begin(300);
 
   clockDisplay.begin(DISPLAY_I2C_ADDRESS);
   clockDisplay.setBrightness(0);
@@ -77,20 +76,24 @@ void loop() {
     DateTime now = rtc.now();
     hours = now.hour();
     minutes = now.minute();
-    Serial.print(now.dayOfTheWeek());
+//    Serial.print(now.dayOfTheWeek());
     weekday = now.dayOfTheWeek();
   }
 
   if (weekday == 0 or weekday == 6) {
-    alarmTime = 745;
+    alarmTime = 830;
   } else {
-    alarmTime = 641;
+    alarmTime = WEEKDAY_ALARM;
   }
-
-//  Serial.print(alarmOn ? 'A' : '_');
-//  Serial.print(snoozing ? 'S' : '_');
-//  Serial.print(buttonPressed ? 'B' : '_');
+  
+//  Serial.print(alarmOn ? 'A' : '-');
+//  Serial.print(snoozing ? 'S' : '-');
+//  Serial.print(buttonPressed ? 'B' : '-');
 //  Serial.println(buttonHeldSeconds);
+//  
+//  Serial.print(hours);
+//  Serial.print(" : ");
+//  Serial.println(minutes);
 
   if (alarmOn) {
     if (buttonPressed) {
@@ -105,11 +108,14 @@ void loop() {
       snoozing = true;
       alarmOn = false;
       buttonPressed = false;
+//      Serial.println("up1");
+
     } else {
       tone(SPEAKER_PIN, NOTE_C4, 250);
     }
   } else {
     buttonPressed = false;
+//    Serial.println("up2");
   }
 
   displayValue = displayTimeFromHrMin(hours, minutes);
@@ -135,6 +141,7 @@ void loop() {
       alarmOn = true;
       snoozing = false;
       buttonPressed = false;
+//      Serial.println("up3");
     }
 
     blinkColon = !blinkColon;
@@ -157,6 +164,7 @@ void loop() {
     alarmOn = false;
     snoozing = false;
     buttonPressed = false;
+//   Serial.println("up4");
   }
 
   seconds += 1;
@@ -173,7 +181,6 @@ void loop() {
   }
 }
 
-ISR(INT0_vect)
-{
+void pushed() {
   buttonPressed = true;
 }
