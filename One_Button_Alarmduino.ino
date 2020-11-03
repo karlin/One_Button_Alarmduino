@@ -35,8 +35,11 @@ int displayValue;
 bool snoozing = false;
 bool alarmOn = false;
 bool blinkColon = false;
-int alarmTime = 641;
-int snoozeDelay = 7;
+int weekendAlarm = 750;
+int weekdayAlarm = 719; // 07:03
+int alarmTime = weekdayAlarm;
+int disarmHoldSeconds = 4;
+int snoozeDelayMinutes = 11;
 int unSnoozeTime;
 volatile bool buttonPressed = false;
 int buttonHeldSeconds = 0;
@@ -55,7 +58,7 @@ void setup() {
   digitalWrite(PUSHBUTTON_PIN, HIGH); // Enable pullup resistor
   EIMSK |= (1 << INT0);               // Enable external interrupt INT0
   EICRA |= (1 << ISC01);              // Trigger INT0 on falling edge
-  Serial.begin(115200);
+//  Serial.begin(115200);
 
   clockDisplay.begin(DISPLAY_I2C_ADDRESS);
   clockDisplay.setBrightness(0);
@@ -77,14 +80,14 @@ void loop() {
     DateTime now = rtc.now();
     hours = now.hour();
     minutes = now.minute();
-    Serial.print(now.dayOfTheWeek());
+    //Serial.print(now.dayOfTheWeek());
     weekday = now.dayOfTheWeek();
   }
 
   if (weekday == 0 or weekday == 6) {
-    alarmTime = 745;
+    alarmTime = weekendAlarm;
   } else {
-    alarmTime = 641;
+    alarmTime = weekdayAlarm;
   }
 
 //  Serial.print(alarmOn ? 'A' : '_');
@@ -95,7 +98,7 @@ void loop() {
   if (alarmOn) {
     if (buttonPressed) {
       snoozeUntil.hours = hours;
-      snoozeUntil.minutes = minutes + snoozeDelay;
+      snoozeUntil.minutes = minutes + snoozeDelayMinutes;
       if (snoozeUntil.minutes > 59) {
         snoozeUntil.hours = (hours + 1) % 24;
         snoozeUntil.minutes = snoozeUntil.minutes - 60;
@@ -130,7 +133,10 @@ void loop() {
     }
   }
 
+  // If alarm is on but snoozed, blink the colon @ 1Hz
   if (snoozing) {
+
+    // Check if snooze timer is up. If so, clear button state and reset alarm & snooze states.
     if (displayValue >= unSnoozeTime) {
       alarmOn = true;
       snoozing = false;
@@ -146,13 +152,14 @@ void loop() {
   clockDisplay.writeDisplay();
   delay(1000);
 
+  // Increment button hold count if pressed after the 1s delay
   if (digitalRead(PUSHBUTTON_PIN) == LOW) {
     buttonHeldSeconds += 1;
   } else {
     buttonHeldSeconds = 0;
   }
 
-  if (buttonHeldSeconds == 5) {
+  if (buttonHeldSeconds == disarmHoldSeconds) {
     buttonHeldSeconds = 0;
     alarmOn = false;
     snoozing = false;
