@@ -30,13 +30,13 @@ int seconds = 0;
 int weekday = 0;
 int displayValue;
 
+const int weekendAlarm = 930;
+const int weekdayAlarm = 845; // 08:45
+const int disarmHoldSeconds = 5;
 bool snoozing = false;
 bool alarmOn = false;
 bool blinkColon = false;
-const int weekendAlarm = 830;
-const int weekdayAlarm = 741; // 07:41
 int alarmTime = weekdayAlarm;
-const int disarmHoldSeconds = 5;
 int snoozeDelayMinutes = 11;
 int unSnoozeTime;
 volatile bool buttonPressed = false;
@@ -51,7 +51,7 @@ int displayTimeFromHrMin(int hours, int minutes) {
 }
 
 void setup() {
-  sei();                                    // Enable global interrupts
+  interrupts();                             // Enable global interrupts
   pinMode(PUSHBUTTON_PIN, INPUT_PULLUP);    // Enable pullup resistor
   attachInterrupt(
     digitalPinToInterrupt(PUSHBUTTON_PIN),
@@ -65,7 +65,7 @@ void setup() {
 
   bool setClockTime = !rtc.isrunning();
 
-  //setClockTime = true; 
+  //setClockTime = true;
   if (setClockTime) {
     // Set the DS1307 time to the exact date and time the sketch was compiled:
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
@@ -93,6 +93,7 @@ void loop() {
 //  Serial.print(snoozing ? 'S' : '_');
 //  Serial.print(buttonPressed ? 'B' : '_');
 //  Serial.println(buttonHeldSeconds);
+  displayValue = displayTimeFromHrMin(hours, minutes);
 
   if (alarmOn) {
     if (buttonPressed) {
@@ -108,16 +109,15 @@ void loop() {
       alarmOn = false;
       buttonPressed = false;
     } else {
-      tone(SPEAKER_PIN, NOTE_C4, 250);
+      if (!buttonPressed) {
+        tone(SPEAKER_PIN, NOTE_C4, 250);
+      }
     }
   } else {
     buttonPressed = false;
-  }
-
-  displayValue = displayTimeFromHrMin(hours, minutes);
-
-  if (displayValue == alarmTime && !snoozing) { // && !buttonPressed) {
-    alarmOn = true;
+    if (displayValue == alarmTime && !snoozing) { // && !buttonPressed) {
+      alarmOn = true;
+    }
   }
 
   clockDisplay.print(displayValue, DEC);
@@ -158,7 +158,7 @@ void loop() {
     buttonHeldSeconds = 0;
   }
 
-  if (buttonHeldSeconds == disarmHoldSeconds) {
+  if (buttonHeldSeconds > disarmHoldSeconds) {
     buttonHeldSeconds = 0;
     alarmOn = false;
     snoozing = false;
