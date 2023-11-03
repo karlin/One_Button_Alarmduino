@@ -13,7 +13,6 @@
 #include "Adafruit_GFX.h"
 #include "RTClib.h"
 
-
 #define SKEW_CORRECT_MINUTES  5
 #define TIME_24_HOUR          true
 #define DISPLAY_I2C_ADDRESS   0x70
@@ -30,13 +29,15 @@ int seconds = 0;
 int weekday = 0;
 int displayValue;
 
-const int weekendAlarm = 930;
-const int weekdayAlarm = 845; // 08:45
+const int weekendAlarm = 930; // 09:30
+const int weekdayAlarm = 800; // 08:00
 const int disarmHoldSeconds = 5;
+const int alarmExpireSeconds = 60 * 60 * 2; // 2hrs
 bool snoozing = false;
 bool alarmOn = false;
 bool blinkColon = false;
 int alarmTime = weekdayAlarm;
+int alarmExpireSecondsCounter = 0;
 int snoozeDelayMinutes = 11;
 int unSnoozeTime;
 volatile bool buttonPressed = false;
@@ -57,15 +58,17 @@ void setup() {
     digitalPinToInterrupt(PUSHBUTTON_PIN),
     pushed,
     FALLING);                               // Trigger INT0 on falling edge
-//  Serial.begin(115200);
+  //Serial.begin(115200);
 
   clockDisplay.begin(DISPLAY_I2C_ADDRESS);
   clockDisplay.setBrightness(0);
   rtc.begin();
 
-  bool setClockTime = !rtc.isrunning();
+  bool setClockTime = !rtc.isrunning(); // Always set time if RTC is off
 
-  //setClockTime = true;
+  // SET TO true TO OVERRIDE RTC WITH TIME FROM YOUR COMPUTER:
+  setClockTime = false;
+
   if (setClockTime) {
     // Set the DS1307 time to the exact date and time the sketch was compiled:
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
@@ -75,6 +78,7 @@ void setup() {
 void loop() {
   noTone(SPEAKER_PIN);
 
+  // Correct clock skew on some interval of minutes:
   if (minutes % SKEW_CORRECT_MINUTES == 0 ) {
     DateTime now = rtc.now();
     hours = now.hour();
@@ -83,19 +87,21 @@ void loop() {
     weekday = now.dayOfTheWeek();
   }
 
+  // Check which alarm time to use (e.g. weekend):
   if (weekday == 0 or weekday == 6) {
     alarmTime = weekendAlarm;
   } else {
     alarmTime = weekdayAlarm;
   }
 
-//  Serial.print(alarmOn ? 'A' : '_');
-//  Serial.print(snoozing ? 'S' : '_');
-//  Serial.print(buttonPressed ? 'B' : '_');
-//  Serial.println(buttonHeldSeconds);
+  //Serial.print(alarmOn ? 'A' : '_');
+  //Serial.print(snoozing ? 'S' : '_');
+  //Serial.print(buttonPressed ? 'B' : '_');
+  //Serial.println(buttonHeldSeconds);
   displayValue = displayTimeFromHrMin(hours, minutes);
 
   if (alarmOn) {
+    alarmExpireSecondsCounter++;
     if (buttonPressed) {
       snoozeUntil.hours = hours;
       snoozeUntil.minutes = minutes + snoozeDelayMinutes;
@@ -109,13 +115,16 @@ void loop() {
       alarmOn = false;
       buttonPressed = false;
     } else {
-      if (!buttonPressed) {
-        tone(SPEAKER_PIN, NOTE_C4, 250);
+      tone(SPEAKER_PIN, NOTE_C4, 250);
+      // Turn the alarm off eventually, in case nobody's home:
+      if (!snoozing && (alarmExpireSecondsCounter > alarmExpireSeconds)) {
+        alarmOn = false;
+        alarmExpireSecondsCounter = 0;
       }
     }
   } else {
     buttonPressed = false;
-    if (displayValue == alarmTime && !snoozing) { // && !buttonPressed) {
+    if (displayValue == alarmTime && !snoozing) {
       alarmOn = true;
     }
   }
@@ -134,9 +143,9 @@ void loop() {
 
   // If alarm is on but snoozed, blink the colon @ 1Hz
   if (snoozing) {
-
-    // Check if snooze timer is up. If so, clear button state and reset alarm & snooze states.
-    if (displayValue >= unSnoozeTime) {
+    // Check if snooze timer is up. If so, clear button state and reset alarm & snooze states:
+    if (displayValue >= unSnoozeTime &&
+        buttonHeldSeconds == 0) { // Don't turn the alarm on while the button is being held.
       alarmOn = true;
       snoozing = false;
       buttonPressed = false;
@@ -153,25 +162,26 @@ void loop() {
 
   // Increment button hold count if pressed after the 1s delay
   if (digitalRead(PUSHBUTTON_PIN) == LOW) {
-    buttonHeldSeconds += 1;
+    buttonHeldSeconds++;
   } else {
     buttonHeldSeconds = 0;
   }
 
-  if (buttonHeldSeconds > disarmHoldSeconds) {
+  // After the 1s delay, check if the button has been held long enough to disable alarm:
+  if (alarmOn && (buttonHeldSeconds > disarmHoldSeconds)) {
     buttonHeldSeconds = 0;
     alarmOn = false;
     snoozing = false;
     buttonPressed = false;
   }
 
-  seconds += 1;
+  seconds++;
   if (seconds > 59) {
     seconds = 0;
-    minutes += 1;
+    minutes++;
     if (minutes > 59) {
       minutes = 0;
-      hours += 1;
+      hours++;
       if (hours > 23) {
         hours = 0;
       }
