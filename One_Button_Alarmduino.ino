@@ -64,10 +64,10 @@ void setup() {
   clockDisplay.setBrightness(0);
   rtc.begin();
 
-  bool setClockTime = !rtc.isrunning(); // Always set time if RTC is off
+  bool setClockTime = not rtc.isrunning(); // Always set time if RTC is off
 
-  // SET TO true TO OVERRIDE RTC WITH TIME FROM YOUR COMPUTER:
-  setClockTime = false;
+  // SET TO true TO OVERRIDE RTC WITH TIME FROM YOUR COMPUTER (e.g. for DST):
+  //setClockTime = true;
 
   if (setClockTime) {
     // Set the DS1307 time to the exact date and time the sketch was compiled:
@@ -117,14 +117,14 @@ void loop() {
     } else {
       tone(SPEAKER_PIN, NOTE_C4, 250);
       // Turn the alarm off eventually, in case nobody's home:
-      if (!snoozing && (alarmExpireSecondsCounter > alarmExpireSeconds)) {
+      if (alarmExpireSecondsCounter > alarmExpireSeconds) {
         alarmOn = false;
         alarmExpireSecondsCounter = 0;
       }
     }
   } else {
     buttonPressed = false;
-    if (displayValue == alarmTime && !snoozing) {
+    if (displayValue == alarmTime and not snoozing) {
       alarmOn = true;
     }
   }
@@ -144,14 +144,13 @@ void loop() {
   // If alarm is on but snoozed, blink the colon @ 1Hz
   if (snoozing) {
     // Check if snooze timer is up. If so, clear button state and reset alarm & snooze states:
-    if (displayValue >= unSnoozeTime &&
-        buttonHeldSeconds == 0) { // Don't turn the alarm on while the button is being held.
+    if (displayValue >= unSnoozeTime) {
       alarmOn = true;
       snoozing = false;
       buttonPressed = false;
     }
 
-    blinkColon = !blinkColon;
+    blinkColon = not blinkColon;
     clockDisplay.drawColon(blinkColon);
   } else {
     clockDisplay.drawColon(true);
@@ -168,7 +167,7 @@ void loop() {
   }
 
   // After the 1s delay, check if the button has been held long enough to disable alarm:
-  if (alarmOn && (buttonHeldSeconds > disarmHoldSeconds)) {
+  if (buttonHeldSeconds > disarmHoldSeconds) {
     buttonHeldSeconds = 0;
     alarmOn = false;
     snoozing = false;
